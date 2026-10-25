@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TOKYO RAIL | 運行状況マップ</title>
+<style>
+:root{color-scheme:dark;--bg:#000;--panel:#04090b;--panel2:#071116;--border:#18343d;--cyan:#58e5f2;--text:#eaf4f7;--muted:#86a0aa}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;overflow:hidden}
+button{font:inherit;cursor:pointer}
+#app{height:100dvh;display:flex;flex-direction:column}
+header{height:60px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--border);background:#020506}
+.logo{font-weight:900;letter-spacing:.08em;font-size:18px;color:var(--cyan)}
+.sub{font-size:10px;color:#72909a;letter-spacing:.16em;margin-top:2px}
+.head-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.badge{font-size:10px;color:#e9c66d;border:1px solid #6e5929;border-radius:999px;padding:5px 8px;letter-spacing:.08em}
+.iconbtn{border:1px solid #244652;background:#071015;color:#b6eff8;border-radius:8px;width:38px;height:38px}
+.main{flex:1;min-height:0;display:flex}
+.mapwrap{position:relative;flex:1;min-width:0;background:radial-gradient(circle at 50% 45%, #071216 0%, #020607 42%, #000 78%);overflow:hidden}
+svg{width:100%;height:100%;display:block;touch-action:none;user-select:none}
+.route{fill:none;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.route-under{stroke-width:16;opacity:.18;filter:blur(3px)}
+.route-main{stroke-width:5.5;filter:drop-shadow(0 0 3px currentColor) drop-shadow(0 0 8px currentColor) drop-shadow(0 0 14px currentColor)}
+.route-hit{stroke:transparent;stroke-width:24;pointer-events:stroke;cursor:pointer}
+.route-group:hover .route-main,.route-group.selected .route-main{stroke-width:7.5;filter:drop-shadow(0 0 4px currentColor) drop-shadow(0 0 10px currentColor) drop-shadow(0 0 22px currentColor)}
+.station circle{fill:#04080a;stroke:#ecfbff;stroke-width:1.7;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 4px rgba(255,255,255,.55))}
+.station.major circle{fill:#020506;stroke-width:3;filter:drop-shadow(0 0 6px rgba(255,255,255,.72))}
+.station text{fill:#f3fbff;font-size:14px;font-weight:700;paint-order:stroke;stroke:#000;stroke-width:4;stroke-linejoin:round;filter:drop-shadow(0 0 4px rgba(118,227,255,.25))}
+.station.minor text{font-size:11px;font-weight:500;fill:#b5c7cd}
+.station text,.station circle{pointer-events:none}
+.bgglow{position:absolute;inset:0;pointer-events:none;background:
+radial-gradient(circle at 35% 40%, rgba(75,235,255,.08), transparent 28%),
+radial-gradient(circle at 68% 48%, rgba(90,160,255,.06), transparent 26%),
+linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);background-size:auto,auto,36px 36px,36px 36px;opacity:.35;mix-blend-mode:screen}
+.topnote{position:absolute;left:18px;top:16px;pointer-events:none}
+.topnote .eyebrow{font-size:10px;letter-spacing:.2em;color:var(--cyan);font-weight:700}
+.topnote .hint{font-size:11px;color:#748f99;margin-top:4px}
+.legend{position:absolute;left:16px;bottom:16px;display:flex;gap:14px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:999px;background:rgba(0,0,0,.86);font-size:11px;color:#c6d5da}
+.legend span{display:flex;gap:6px;align-items:center}
+.legend i{display:block;width:18px;height:4px;border-radius:999px;background:#58e5f2}
+.legend i.delay{background:#ffc54c}.legend i.stop{background:#ff486a}
+.zoom{position:absolute;right:14px;bottom:16px;display:grid;gap:1px;border:1px solid #234956;border-radius:10px;overflow:hidden;background:#061116}
+.zoom button{width:42px;height:42px;border:0;background:#071116;color:#b6eff8}
+.zoom button+button{border-top:1px solid #203f49}
+.panel{width:320px;flex-shrink:0;border-left:1px solid var(--border);background:var(--panel);padding:18px 16px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.kicker{font-size:10px;letter-spacing:.2em;color:#7395a1}
+.title{font-size:18px;font-weight:800}
+.alert{display:flex;gap:12px;align-items:center;background:var(--panel2);border:1px solid var(--border);padding:12px;border-radius:10px;cursor:pointer}
+.alertbar{width:5px;height:38px;border-radius:99px}
+.alert .name{font-size:13px;font-weight:800}
+.alert .desc{font-size:11px;color:#95aab2;margin-top:4px}
+.detail{border:1px solid #25444f;background:#071116;border-radius:12px;padding:16px}
+.linecode{display:inline-block;padding:4px 6px;border:1px solid currentColor;border-radius:6px;font-size:11px;font-weight:700}
+.linehead{font-size:19px;font-weight:800;margin:10px 0 4px}
+.status{font-size:25px;font-weight:900;letter-spacing:.06em;margin:10px 0}
+.small{font-size:12px;color:#9ab0b8;line-height:1.8}
+.sep{height:1px;background:#1b3540;border:0;margin:14px 0}
+.row{display:grid;grid-template-columns:74px 1fr;gap:8px;padding:9px 0;border-bottom:1px solid #132831;font-size:12px}
+.row:last-child{border:0}
+.row span:first-child{color:#7d99a4}
+.link{display:block;margin-top:12px;color:#95ecfa;text-decoration:none;font-size:12px}
+.foot{margin-top:auto;font-size:10px;line-height:1.7;color:#657f89}
+.close{display:none}
+.mobileChip{display:none}
+@media (max-width: 820px){
+  header{height:56px;padding:0 12px}.logo{font-size:16px}.sub{font-size:9px}.head-right .badge{font-size:9px}.main{position:relative}
+  .topnote{left:12px;top:12px}.topnote .hint{font-size:10px}
+  .legend{left:10px;bottom:10px;gap:8px;padding:7px 8px;font-size:10px}
+  .zoom{right:10px;bottom:12px}
+  .panel{position:absolute;left:0;right:0;bottom:0;width:auto;max-height:70%;border-left:0;border-top:1px solid #25505c;border-radius:16px 16px 0 0;transform:translateY(104%);transition:transform .2s ease;z-index:10;box-shadow:0 -12px 36px rgba(0,0,0,.65)}
+  .panel.show{transform:translateY(0)}
+  .close{display:block;position:absolute;right:14px;top:12px;width:32px;height:32px;border:0;border-radius:8px;background:#102329;color:#bfeaf2}
+  .alert{display:none}
+  .mobileChip{display:block;position:absolute;left:12px;top:62px;z-index:5}
+  .mobileChip button{border:1px solid #66471f;background:#1d130d;color:#ffc55d;border-radius:999px;padding:8px 12px;font-size:11px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div>
+      <div class="logo">◉ TOKYO RAIL</div>
+      <div class="sub">OPERATIONS MAP / 東京運行マップ</div>
+    </div>
+    <div class="head-right">
+      <span class="badge">DEMO DATA</span>
+      <button class="iconbtn" id="reset">⌖</button>
+    </div>
+  </header>
+  <div class="main">
+    <div class="mapwrap">
+      <div class="bgglow" aria-hidden="true"></div><div class="topnote">
+        <div class="eyebrow">TOKYO RAIL NETWORK</div>
+        <div class="hint">路線をタップすると詳細が表示されます</div>
+      </div>
+      <div class="mobileChip"><button id="showAlerts">⚠ 異常のある路線を見る</button></div>
+      <svg id="map" viewBox="0 0 1200 820" xmlns="http://www.w3.org/2000/svg" aria-label="東京の鉄道路線図">
+        <g id="routes"></g>
+        <g id="stations"></g>
+      </svg>
+      <div class="legend"><span><i></i>平常</span><span><i class="delay"></i>遅延</span><span><i class="stop"></i>見合わせ</span></div>
+      <div class="zoom"><button id="plus">＋</button><button id="minus">－</button><button id="home">⌂</button></div>
+    </div>
+    <aside class="panel" id="panel">
+      <button class="close" id="close">×</button>
+      <div>
+        <div class="kicker">OPERATION STATUS</div>
+        <div class="title">運行状況</div>
+      </div>
+      <div class="alert" id="alertDelay"><div class="alertbar" style="background:#ffc54c"></div><div><div class="name">中央線快速 <span style="color:#ffc54c">遅延</span></div><div class="desc">一部区間で遅れが発生中（デモ）</div></div></div>
+      <div class="alert" id="alertStop"><div class="alertbar" style="background:#ff486a"></div><div><div class="name">中央・総武線 <span style="color:#ff486a">見合わせ</span></div><div class="desc">一部区間で運転見合わせ（デモ）</div></div></div>
+      <div class="detail" id="detail">
+        <div class="kicker">SELECT A LINE</div>
+        <div class="linehead">路線を選択</div>
+        <p class="small">路線図上の線をタップすると、選択した路線の運行状況・影響区間・原因のサンプル情報を表示します。</p>
+      </div>
+      <div class="foot">※ このサイトはUI確認用の試作品です。運行情報はデモデータであり、実際の運行判断には使用できません。</div>
+    </aside>
+  </div>
+</div>
+<script>
+'use strict';
+const P={
+  mitaka:[70,385],nakano:[170,385],takadanobaba:[285,300],ikebukuro:[365,205],sugamo:[500,185],tabata:[620,188],nippori:[710,218],ueno:[770,275],kitasenju:[890,170],
+  shinjuku:[330,385],yoyogi:[342,435],harajuku:[365,490],shibuya:[392,555],ebisu:[455,600],meguro:[525,618],osaki:[598,648],shinagawa:[678,670],tamachi:[710,620],hamamatsucho:[730,575],shimbashi:[742,530],yurakucho:[740,490],tokyo:[735,455],kanda:[730,405],akihabara:[790,382],kinshicho:[952,390],nishifunabashi:[1118,402],
+  yotsuya:[495,392],iidabashi:[572,340],korakuen:[610,295],ochanomizu:[655,370],otemachi:[710,440],nihombashi:[780,452],kayabacho:[820,475],monzennakacho:[875,505],kiyosumi:[905,468],toyocho:[965,515],nishikasai:[1030,518],kasai:[1085,525],
+  kasumigaseki:[645,500],ginza:[760,500],akasaka:[555,452],roppongi:[555,520],asakusa:[855,255],oshiage:[1015,308]
+};
+const stationsMeta={
+  mitaka:['三鷹',false,[-6,-10]],nakano:['中野',true,[-6,-10]],takadanobaba:['高田馬場',false,[-10,-10]],ikebukuro:['池袋',true,[-4,-12]],sugamo:['巣鴨',false,[-6,-12]],tabata:['田端',false,[8,-12]],nippori:['日暮里',false,[8,15]],ueno:['上野',true,[8,-10]],kitasenju:['北千住',true,[10,-10]],
+  shinjuku:['新宿',true,[-6,-12]],yoyogi:['代々木',false,[10,16]],harajuku:['原宿',false,[10,16]],shibuya:['渋谷',true,[10,16]],ebisu:['恵比寿',false,[10,16]],meguro:['目黒',false,[10,16]],osaki:['大崎',false,[10,18]],shinagawa:['品川',true,[10,18]],
+  shimbashi:['新橋',false,[10,16]],tokyo:['東京',true,[10,16]],akihabara:['秋葉原',true,[10,-10]],kinshicho:['錦糸町',true,[10,-10]],nishifunabashi:['西船橋',true,[10,-10]],
+  yotsuya:['四ツ谷',false,[8,-10]],iidabashi:['飯田橋',false,[8,-10]],korakuen:['後楽園',false,[8,-10]],ochanomizu:['御茶ノ水',false,[8,-10]],otemachi:['大手町',true,[8,18]],nihombashi:['日本橋',false,[8,18]],toyocho:['東陽町',false,[8,18]],nishikasai:['西葛西',false,[8,18]],
+  kasumigaseki:['霞ケ関',false,[8,18]],ginza:['銀座',false,[8,18]],akasaka:['赤坂',false,[-40,4]],roppongi:['六本木',false,[-38,20]],asakusa:['浅草',false,[8,-10]],oshiage:['押上',false,[8,18]]
+};
+const lines=[
+  {id:'jy',code:'JY',name:'山手線',company:'JR東日本',color:'#83cd45',status:'normal',stops:['tokyo','yurakucho','shimbashi','hamamatsucho','tamachi','shinagawa','osaki','meguro','ebisu','shibuya','harajuku','yoyogi','shinjuku','takadanobaba','ikebukuro','sugamo','tabata','nippori','ueno','akihabara','kanda','tokyo']},
+  {id:'jc',code:'JC',name:'中央線快速',company:'JR東日本',color:'#f18a31',status:'delay',stops:['mitaka','nakano','shinjuku','yotsuya','ochanomizu','kanda','tokyo'],section:'中野〜御茶ノ水',reason:'車両点検（サンプル）'},
+  {id:'jb',code:'JB',name:'中央・総武線（各駅停車）',company:'JR東日本',color:'#f8d83f',status:'suspend',stops:['mitaka','nakano','shinjuku','yoyogi','yotsuya','iidabashi','ochanomizu','akihabara','kinshicho','nishifunabashi'],section:'御茶ノ水〜錦糸町',reason:'設備点検（サンプル）'},
+  {id:'jk',code:'JK',name:'京浜東北線',company:'JR東日本',color:'#32b7e0',status:'normal',stops:['tabata','nippori','ueno','akihabara','kanda','tokyo','yurakucho','shimbashi','hamamatsucho','tamachi','shinagawa']},
+  {id:'t',code:'T',name:'東京メトロ東西線',company:'東京メトロ',color:'#18b1c7',status:'normal',stops:['nakano','takadanobaba','iidabashi','otemachi','nihombashi','kayabacho','monzennakacho','toyocho','nishikasai','kasai','nishifunabashi']},
+  {id:'m',code:'M',name:'東京メトロ丸ノ内線',company:'東京メトロ',color:'#f14d65',status:'normal',stops:['ikebukuro','korakuen','ochanomizu','otemachi','tokyo','ginza','kasumigaseki','akasaka','yotsuya','shinjuku','nakano']},
+  {id:'g',code:'G',name:'東京メトロ銀座線',company:'東京メトロ',color:'#e8a234',status:'normal',stops:['shibuya','akasaka','kasumigaseki','ginza','shimbashi','nihombashi','ueno','asakusa']},
+  {id:'h',code:'H',name:'東京メトロ日比谷線',company:'東京メトロ',color:'#9fa4a8',status:'normal',stops:['ebisu','roppongi','kasumigaseki','ginza','akihabara','ueno','kitasenju']},
+  {id:'c',code:'C',name:'東京メトロ千代田線',company:'東京メトロ',color:'#20ab77',status:'normal',stops:['shibuya','harajuku','akasaka','kasumigaseki','otemachi','ochanomizu','nippori','kitasenju']},
+  {id:'z',code:'Z',name:'東京メトロ半蔵門線',company:'東京メトロ',color:'#9f83c9',status:'normal',stops:['shibuya','roppongi','akasaka','iidabashi','otemachi','kiyosumi','kinshicho','oshiage']},
+  {id:'n',code:'N',name:'東京メトロ南北線',company:'東京メトロ',color:'#24b7a2',status:'normal',stops:['meguro','roppongi','akasaka','iidabashi','korakuen','sugamo']},
+  {id:'a',code:'A',name:'都営浅草線',company:'都営地下鉄',color:'#ed5895',status:'normal',stops:['shinagawa','shimbashi','ginza','nihombashi','asakusa','oshiage']},
+  {id:'e',code:'E',name:'都営大江戸線',company:'都営地下鉄',color:'#ca4d98',status:'normal',stops:['shinjuku','yoyogi','roppongi','shimbashi','monzennakacho','kiyosumi','iidabashi','korakuen','shinjuku']}
+];
+const statusText={normal:'平常運転',delay:'遅延',suspend:'運転見合わせ'};
+const statusColor={normal:'#61dcc9',delay:'#ffc54c',suspend:'#ff486a'};
+const svg=document.getElementById('map');
+const routesG=document.getElementById('routes');
+const stationsG=document.getElementById('stations');
+const panel=document.getElementById('panel');
+const detail=document.getElementById('detail');
+const NS='http://www.w3.org/2000/svg';
+function E(type,attrs,parent){const el=document.createElementNS(NS,type);for(const [k,v] of Object.entries(attrs||{}))el.setAttribute(k,v);if(parent)parent.appendChild(el);return el}
+const routeEls=new Map();
+function lineStroke(line){return line.status==='delay'?'#ffc54c':line.status==='suspend'?'#ff486a':line.color}
+for(const line of lines){const g=E('g',{class:'route-group',style:`color:${line.color}`},routesG);routeEls.set(line.id,g);const pts=line.stops.map(s=>P[s].join(',')).join(' ');E('polyline',{points:pts,class:'route route-under',stroke:line.color},g);E('polyline',{points:pts,class:'route route-main',stroke:lineStroke(line),'stroke-dasharray':line.status==='suspend'?'12 8':''},g);E('polyline',{points:pts,class:'route route-hit'},g);g.addEventListener('click',()=>select(line.id));}
+for(const [id,[label,isMajor,[dx,dy]]] of Object.entries(stationsMeta)){
+  const [x,y]=P[id];
+  const g=E('g',{class:`station ${isMajor?'major':'minor'}`},stationsG);
+  E('circle',{cx:x,cy:y,r:isMajor?7:4},g);
+  const t=E('text',{x:x+dx,y:y+dy},g);t.textContent=label;
+}
+function officialUrl(company){if(company==='JR東日本')return 'https://traininfo.jreast.co.jp/train_info/kanto.aspx'; if(company==='東京メトロ')return 'https://www.tokyometro.jp/unkou/'; return 'https://www.kotsu.metro.tokyo.jp/subway/schedule/';}
+function select(id){
+  const line=lines.find(v=>v.id===id);
+  routeEls.forEach((g,key)=>g.classList.toggle('selected',key===id));
+  const sc=statusColor[line.status];
+  detail.innerHTML=`<span class="linecode" style="color:${line.color}">${line.code}</span><div class="linehead">${line.name}</div><div class="small">${line.company}</div><hr class="sep"><div class="status" style="color:${sc}">${statusText[line.status]}</div><div class="small">${line.status==='normal'?'平常運転として表示しています（デモ）。':'一部区間に影響がある想定のデモ表示です。'}</div><hr class="sep"><div class="row"><span>影響区間</span><strong>${line.section||'なし（デモ）'}</strong></div><div class="row"><span>原因</span><strong>${line.reason||'—'}</strong></div><div class="row"><span>更新</span><strong>サンプルデータ・実際の情報ではありません</strong></div><a class="link" href="${officialUrl(line.company)}" target="_blank" rel="noopener noreferrer">公式運行情報を見る ↗</a>`;
+  if(innerWidth<=820)panel.classList.add('show');
+}
+
+document.getElementById('alertDelay').onclick=()=>select('jc');
+document.getElementById('alertStop').onclick=()=>select('jb');
+document.getElementById('showAlerts').onclick=()=>select('jc');
+document.getElementById('close').onclick=()=>panel.classList.remove('show');
+let view={x:0,y:0,w:1200,h:820};
+function defaultView(){return innerWidth<=820?{x:0,y:0,w:1200,h:820}:{x:0,y:0,w:1200,h:820};}
+function apply(){svg.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`)}
+function clamp(){view.w=Math.min(1400,Math.max(340,view.w));view.h=view.w*820/1200;view.x=Math.max(-40,Math.min(1200-view.w+40,view.x));view.y=Math.max(-20,Math.min(820-view.h+20,view.y));}
+function zoom(f){const nw=view.w*f;const nh=nw*820/1200;view.x+=(view.w-nw)/2;view.y+=(view.h-nh)/2;view.w=nw;view.h=nh;clamp();apply();}
+document.getElementById('plus').onclick=()=>zoom(.85);document.getElementById('minus').onclick=()=>zoom(1.18);document.getElementById('home').onclick=document.getElementById('reset').onclick=()=>{view=defaultView();apply()};
+let drag=null;svg.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,start:{...view},moved:false};svg.setPointerCapture(e.pointerId)});svg.addEventListener('pointermove',e=>{if(!drag)return;const rect=svg.getBoundingClientRect();const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>8)drag.moved=true;if(drag.moved){view.x=drag.start.x-dx*(drag.start.w/rect.width);view.y=drag.start.y-dy*(drag.start.h/rect.height);clamp();apply();}});svg.addEventListener('pointerup',e=>{if(drag&&drag.moved){e.preventDefault();svg.addEventListener('click',block,true)}drag=null;});function block(e){e.stopPropagation();svg.removeEventListener('click',block,true)}
+svg.addEventListener('wheel',e=>{e.preventDefault();zoom(e.deltaY>0?1.08:.92)},{passive:false});
+window.addEventListener('resize',()=>{view=defaultView();apply(); if(innerWidth>820) panel.classList.remove('show');});
+view=defaultView();apply();
+</script>
+</body>
+</html>
